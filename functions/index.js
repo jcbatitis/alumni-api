@@ -1,18 +1,22 @@
+const isEmpty = require('lodash/isEmpty');
+
 const functions = require("firebase-functions");
 const express = require("express");
 const cors = require("cors");
 
-const admin = require("firebase-admin");
-admin.initializeApp();
-
 const requireAuthentication = require("./authMiddleware");
-
 const user = express();
 const transcript = express();
 
+const admin = require("firebase-admin");
+
+admin.initializeApp();
 user.use(
   cors({
-    origin: "http://localhost:4200",
+    origin: [
+      "https://alumni-management-87648.web.app",
+      "http://localhost:4200",
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -20,14 +24,17 @@ user.use(
 
 transcript.use(
   cors({
-    origin: "http://localhost:4200",
+    origin: [
+      "https://alumni-management-87648.web.app",
+      "http://localhost:4200",
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
 // USER - GETS LISTS OF USERS
-user.get("/GetAllUsers", requireAuthentication, async (req, res) => {
+user.get("/GetAllUsers", async (req, res) => {
   try {
     const snapshot = await admin.firestore().collection("Users").get();
 
@@ -55,7 +62,13 @@ user.get("/GetUserById/:id", async (req, res) => {
       .get();
 
     const response = snapshot.data();
-    res.status(200).send({ id: snapshot.id, ...response });
+
+    if (isEmpty(response) || response.role === 'admin') {
+      res.status(500).send("Error getting user details.");
+      return;
+    }
+
+    res.status(200).send({ ...response });
   } catch (error) {
     console.error(error);
     res.status(500).send("Error getting user details.");
@@ -87,10 +100,20 @@ user.get("/GetUserByEmail/:email", requireAuthentication, async (req, res) => {
 user.post("/CreateUser", async (req, res) => {
   try {
     const user = req.body;
-    const reference = await admin.firestore().collection("Users").add(user);
-    const snapshot = await reference.get();
+    const reference = await admin
+      .firestore()
+      .collection("Users")
+      .doc(req.body.student_id)
+      .set(user);
+
+    const snapshot = await admin
+      .firestore()
+      .collection("Users")
+      .doc(req.body.student_id)
+      .get();
+
     const response = snapshot.data();
-    res.status(200).send({ id: userRef.id, ...response });
+    res.status(200).send({ id: reference.id, ...response });
   } catch (error) {
     res.status(500).send("Error creating user.");
   }
@@ -131,24 +154,20 @@ transcript.post("/CreateTranscript", async (req, res) => {
   }
 });
 
-transcript.get(
-  "/GetTranscriptById/:id",
-  requireAuthentication,
-  async (req, res) => {
-    try {
-      const snapshot = await admin
-        .firestore()
-        .collection("Transcripts")
-        .doc(req.params.id)
-        .get();
+transcript.get("/GetTranscriptById/:id", async (req, res) => {
+  try {
+    const snapshot = await admin
+      .firestore()
+      .collection("Transcripts")
+      .doc(req.params.id)
+      .get();
 
-      const response = snapshot.data();
-      res.status(200).send({ ...response });
-    } catch (error) {
-      res.status(500).send("Error getting transcripts.");
-    }
+    const response = snapshot.data();
+    res.status(200).send({ ...response });
+  } catch (error) {
+    res.status(500).send("Error getting transcripts.");
   }
-);
+});
 
 exports.User = functions.https.onRequest(user);
 exports.Transcript = functions.https.onRequest(transcript);
