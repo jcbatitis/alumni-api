@@ -1,4 +1,4 @@
-const isEmpty = require('lodash/isEmpty');
+const isEmpty = require("lodash/isEmpty");
 
 const functions = require("firebase-functions");
 const express = require("express");
@@ -6,8 +6,7 @@ const cors = require("cors");
 
 const requireAuthentication = require("./authMiddleware");
 const user = express();
-const transcript = express();
-
+const document = express();
 const admin = require("firebase-admin");
 
 admin.initializeApp();
@@ -22,7 +21,7 @@ user.use(
   })
 );
 
-transcript.use(
+document.use(
   cors({
     origin: [
       "https://alumni-management-87648.web.app",
@@ -63,7 +62,7 @@ user.get("/GetUserById/:id", async (req, res) => {
 
     const response = snapshot.data();
 
-    if (isEmpty(response) || response.role === 'admin') {
+    if (isEmpty(response) || response.role === "admin") {
       res.status(500).send("Error getting user details.");
       return;
     }
@@ -100,20 +99,20 @@ user.get("/GetUserByEmail/:email", requireAuthentication, async (req, res) => {
 user.post("/CreateUser", async (req, res) => {
   try {
     const user = req.body;
-    const reference = await admin
+    await admin
       .firestore()
       .collection("Users")
-      .doc(req.body.student_id)
+      .doc(req.body.id)
       .set(user);
 
     const snapshot = await admin
       .firestore()
       .collection("Users")
-      .doc(req.body.student_id)
+      .doc(req.body.id)
       .get();
 
     const response = snapshot.data();
-    res.status(200).send({ id: reference.id, ...response });
+    res.status(200).send({ ...response });
   } catch (error) {
     res.status(500).send("Error creating user.");
   }
@@ -132,7 +131,7 @@ user.post("/CheckUserSession", async (req, res) => {
 });
 
 // TRANSCRIPT - CREATES NEW TRANSCRIPT
-transcript.post("/CreateTranscript", async (req, res) => {
+document.post("/CreateTranscript", requireAuthentication, async (req, res) => {
   try {
     const transcript = req.body;
     await admin
@@ -154,7 +153,7 @@ transcript.post("/CreateTranscript", async (req, res) => {
   }
 });
 
-transcript.get("/GetTranscriptById/:id", async (req, res) => {
+document.get("/GetTranscriptById/:id", async (req, res) => {
   try {
     const snapshot = await admin
       .firestore()
@@ -163,11 +162,74 @@ transcript.get("/GetTranscriptById/:id", async (req, res) => {
       .get();
 
     const response = snapshot.data();
+    if (isEmpty(response)) {
+      res.status(500).send("Error getting transcript.");
+      return;
+    }
+
     res.status(200).send({ ...response });
   } catch (error) {
     res.status(500).send("Error getting transcripts.");
   }
 });
 
+document.post("/CreateCertificate", requireAuthentication, async (req, res) => {
+  try {
+    const certificate = req.body;
+    await admin
+      .firestore()
+      .collection("Graduates")
+      .doc(req.body.certificate_id)
+      .set(certificate);
+
+    const snapshot = await admin
+      .firestore()
+      .collection("Graduates")
+      .doc(req.body.certificate_id)
+      .get();
+
+    const response = snapshot.data();
+    res.status(200).send({ ...response });
+  } catch (error) {
+    res.status(500).send("Error creating certificate.");
+  }
+});
+
+document.get("/GetCertificateById/:id", async (req, res) => {
+  try {
+    const snapshot = await admin
+      .firestore()
+      .collection("Graduates")
+      .doc(req.params.id)
+      .get();
+
+    const response = snapshot.data();
+    res.status(200).send({ ...response });
+  } catch (error) {
+    res.status(500).send("No certificate found.");
+  }
+});
+
+document.get("/GetCertificateByStudentId/:studentId", async (req, res) => {
+  try {
+    const snapshot = await admin.firestore().collection("Graduates").get();
+
+    let certificates = [];
+    snapshot.forEach((doc) => {
+      let id = doc.id;
+      let data = doc.data();
+
+      certificates.push({ ...data });
+    });
+
+    const response = certificates.find(
+      (cert) => cert.student_id === req.params.studentId
+    );
+    res.status(200).send({ ...response });
+  } catch (error) {
+    res.status(500).send("No certificate found.");
+  }
+});
+
 exports.User = functions.https.onRequest(user);
-exports.Transcript = functions.https.onRequest(transcript);
+exports.Document = functions.https.onRequest(document);
