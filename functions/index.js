@@ -14,6 +14,7 @@ user.use(
   cors({
     origin: [
       "https://alumni-management-87648.web.app",
+      "https://alumni-management-87648.firebaseapp.com/",
       "http://localhost:4200",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -25,6 +26,7 @@ document.use(
   cors({
     origin: [
       "https://alumni-management-87648.web.app",
+      "https://alumni-management-87648.firebaseapp.com/",
       "http://localhost:4200",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
