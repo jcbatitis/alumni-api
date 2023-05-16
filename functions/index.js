@@ -101,11 +101,7 @@ user.get("/GetUserByEmail/:email", requireAuthentication, async (req, res) => {
 user.post("/CreateUser", async (req, res) => {
   try {
     const user = req.body;
-    await admin
-      .firestore()
-      .collection("Users")
-      .doc(req.body.id)
-      .set(user);
+    await admin.firestore().collection("Users").doc(req.body.id).set(user);
 
     const snapshot = await admin
       .firestore()
@@ -206,6 +202,12 @@ document.get("/GetCertificateById/:id", async (req, res) => {
       .get();
 
     const response = snapshot.data();
+
+    if (isEmpty(response)) {
+      res.status(500).send("Invalid Certificate ID.");
+      return;
+    }
+
     res.status(200).send({ ...response });
   } catch (error) {
     res.status(500).send("No certificate found.");
